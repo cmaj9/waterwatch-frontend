@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import WaterLevelChart from '../components/charts/WaterLevelChart';
 import type { Station, TimeRange, WaterLevelReading, StationWithReading, Reading } from '../types';
-import { fetchStations, fetchReadingsInRange } from '../services/apiService';
+import { fetchStations, fetchReadingsInRange, fetchReadingsByStation } from '../services/apiService';
 import {
   AlertTriangleIcon,
   MapPinIcon,
@@ -280,7 +280,14 @@ export default function ChartPage() {
           start.setDate(start.getDate() - 14 * 7);
         }
 
-        const data = await fetchReadingsInRange(selectedStationId, start, end);
+        let data = await fetchReadingsInRange(selectedStationId, start, end);
+        // Fallback: If no readings in the selected window (e.g. historical data), load the latest available readings
+        if (data.length === 0) {
+          const recent = await fetchReadingsByStation(selectedStationId, 150);
+          if (recent.length > 0) {
+            data = recent;
+          }
+        }
         const currStation = stations.find((s) => s.id === selectedStationId);
         const sToRef = currStation?.sensorToRefDistance;
         const aggregated = aggregateReadings(data, timeRange, selectedStationId, sToRef);
@@ -622,22 +629,20 @@ export default function ChartPage() {
                     {selectedStation.referencePointName || 'จุดอ้างอิง'} (0.00 ม.)
                   </span>
                 </div>
-                {selectedStation.warningLevel !== undefined && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
-                    <div style={{ width: 20, height: 2, borderTop: '2px dashed #F59E0B' }} />
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      เกณฑ์เฝ้าระวัง ({selectedStation.warningLevel >= 0 ? '+' : ''}{selectedStation.warningLevel.toFixed(2)} ม.)
-                    </span>
-                  </div>
-                )}
-                {selectedStation.criticalLevel !== undefined && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
-                    <div style={{ width: 20, height: 2, borderTop: '2px dashed #EF4444' }} />
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      เกณฑ์วิกฤต ({selectedStation.criticalLevel >= 0 ? '+' : ''}{selectedStation.criticalLevel.toFixed(2)} ม.)
-                    </span>
-                  </div>
-                )}
+                {/* Warning Level */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
+                  <div style={{ width: 22, height: 2, borderTop: '2px dashed #F59E0B' }} />
+                  <span style={{ color: '#F59E0B', fontWeight: 600 }}>
+                    เกณฑ์เฝ้าระวัง ({((selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? 0.3) >= 0 ? '+' : '')}{Number(selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? 0.3).toFixed(2)} ม.)
+                  </span>
+                </div>
+                {/* Critical Level */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
+                  <div style={{ width: 22, height: 2, borderTop: '2px dashed #EF4444' }} />
+                  <span style={{ color: '#EF4444', fontWeight: 600 }}>
+                    เกณฑ์วิกฤต ({((selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.6) >= 0 ? '+' : '')}{Number(selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.6).toFixed(2)} ม.)
+                  </span>
+                </div>
               </div>
 
               {/* Threshold Micro-Pills */}
