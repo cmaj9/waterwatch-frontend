@@ -4,7 +4,7 @@
 
 ---
 
-## 🌟 ฟีเจอร์หลัก (Key Features)
+## ฟีเจอร์หลัก (Key Features)
 
 - **Live Telemetry & GIS Map**: แสดงระดับน้ำ, แผนที่ดาวเทียม, สัญญาณ LoRaWAN, ระดับแบตเตอรี่, และองศาการเอียงของทุ่นเซนเซอร์แบบเรียลไทม์
 - **Dynamic Node Alerts & Bento Grid**: แจ้งเตือนสถานการณ์น้ำวิกฤตผ่าน LINE OA ในรูปแบบ Bento Grid พร้อม Deep-link ตรงสู่หน้ารายละเอียดโหนด
@@ -13,7 +13,7 @@
 
 ---
 
-## 🚀 การติดตั้งและเริ่มใช้งาน (Getting Started)
+## การติดตั้งและเริ่มใช้งาน (Getting Started)
 
 ### 1. ติดตั้ง Dependencies
 ```bash
@@ -38,7 +38,7 @@ npm run dev
 
 ---
 
-## 📦 โครงสร้างโปรเจกต์ (Project Structure)
+## โครงสร้างโปรเจกต์ (Project Structure)
 
 ```
 Project_FontEnd/
