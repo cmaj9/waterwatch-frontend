@@ -1,0 +1,436 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import StationSegmentedControl from '../components/dashboard/StationSegmentedControl';
+import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
+import StationMap from '../components/map/StationMap';
+import StationRecentReadingsCard from '../components/dashboard/StationRecentReadingsCard';
+import FloatingActionDock from '../components/dashboard/FloatingActionDock';
+import {
+  AlertTriangleIcon,
+  XCircleIcon,
+  RefreshCwIcon,
+  CheckCircleIcon,
+} from '../components/ui/Icons';
+import type { Station, StationWithReading } from '../types';
+import { fetchStations } from '../services/apiService';
+
+// ── Data Mapping Helper ─────────────────────────────────────────────
+const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
+  let district = '';
+  let province = '';
+  if (swr.location_name) {
+    const parts = swr.location_name.split(' ');
+    district = parts[0] ? parts[0].replace(/^[อส]\./, '') : '';
+    province = parts[1] ? parts[1].replace(/^[จ]\./, '') : '';
+  }
+
+  const sType =
+    swr.station_type === 'river'
+      ? 'แม่น้ำ (River)'
+      : swr.station_type === 'canal'
+      ? 'คลอง (Canal)'
+      : swr.station_type || 'สถานีตรวจวัด';
+
+  const sToRef = swr.sensor_to_ref_distance !== undefined && swr.sensor_to_ref_distance !== null
+    ? Number(swr.sensor_to_ref_distance)
+    : 2.0;
+  const refName = swr.reference_point_name && swr.reference_point_name.trim() !== ''
+    ? swr.reference_point_name.trim()
+    : 'จุดอ้างอิง';
+
+  return {
+    id: swr.station_id,
+    name: swr.station_name,
+    description: `ประเภท ${sType} · จุดบริการ ${swr.gateway_name || 'ลุ่มน้ำ'}`,
+    location: swr.location_name || '',
+    district: district,
+    province: province,
+    lat: Number(swr.latitude) || 14.03593,
+    lng: Number(swr.longitude) || 100.72516,
+    currentLevel: swr.raw_distance !== null && swr.raw_distance !== undefined
+      ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
+      : (swr.water_level !== null ? Number(swr.water_level) : 0),
+    sensorToRefDistance: sToRef,
+    referencePointName: refName,
+    rawDistance: swr.raw_distance !== null && swr.raw_distance !== undefined ? Number(swr.raw_distance) : null,
+    isBlindZone: Boolean(swr.is_blind_zone),
+    blindZoneOffset: swr.blind_zone_offset !== undefined ? Number(swr.blind_zone_offset) : 0.28,
+    tiltCompensationEnabled: swr.tilt_compensation_enabled !== false,
+    maxLevel: swr.max_level !== null && swr.max_level !== undefined ? Number(swr.max_level) : undefined,
+    normalMax: swr.normal_max !== null && swr.normal_max !== undefined ? Number(swr.normal_max) : undefined,
+    warningLevel: swr.warning_level !== null && swr.warning_level !== undefined ? Number(swr.warning_level) : undefined,
+    criticalLevel: swr.critical_level !== null && swr.critical_level !== undefined ? Number(swr.critical_level) : undefined,
+    status: swr.water_status || 'unknown',
+    operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
+    lastUpdated: swr.last_reading_time || new Date().toISOString(),
+    isActive: swr.status === 'active',
+    deviceId: swr.station_id,
+    batteryPercent: swr.battery_percent !== null ? Number(swr.battery_percent) : 100,
+    batteryVoltage: swr.battery_voltage !== null ? Number(swr.battery_voltage) : 13.0,
+    temperature: swr.temperature !== null ? Number(swr.temperature) : 31.4,
+    humidity: swr.humidity !== null ? Number(swr.humidity) : 62.5,
+    rssi: swr.rssi !== null ? Number(swr.rssi) : -60,
+    snr: swr.snr !== null ? Number(swr.snr) : 14.5,
+    tiltX: swr.tilt_x !== null ? Number(swr.tilt_x) : 4.3,
+    tiltY: swr.tilt_y !== null ? Number(swr.tilt_y) : -1.1,
+    gatewayName: swr.gateway_name || 'Gateway_01',
+    gatewayStatus: swr.gateway_status || 'online',
+    model: swr.model || 'Heltec-WiFi-LoRa-32(V3)',
+    firmwareVersion: swr.firmware_version || 'v1.2.0',
+    stationType: sType,
+  };
+};
+
+export default function DashboardPage() {
+  const { user } = useAuth();
+
+  const [stations, setStations] = useState<Station[]>([]);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastFetch, setLastFetch] = useState<Date | null>(null);
+
+  // ── Load Real Data from API ───────────────────────────────────────
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const stationData = await fetchStations().catch(() => []);
+
+      if (stationData && stationData.length > 0) {
+        const mapped = stationData.map(mapStationWithReadingToStation);
+        const filtered =
+          user?.role === 'citizen'
+            ? mapped.filter((s) => s.isActive && (!user.stationIds?.length || user.stationIds.includes(s.id)))
+            : mapped;
+
+        setStations(filtered);
+        setLastFetch(new Date());
+
+        // Automatically select ST-001 or the first station on initial load
+        setSelectedStationId((prev) => (prev ? prev : filtered[0]?.id || null));
+      } else {
+        // Fallback demo stations if API returns 0 items
+        const fallbackStations: Station[] = [
+          {
+            id: 'ST-001',
+            name: 'สถาบันวิทยสิริเมธี (ริมแม่น้ำ)',
+            description: 'ประเภท แม่น้ำ (River) · จุดตรวจวัดหลัก',
+            location: 'ต.คลองหก อ.คลองหลวง จ.ปทุมธานี',
+            district: 'คลองหลวง',
+            province: 'ปทุมธานี',
+            lat: 14.03593,
+            lng: 100.72516,
+            currentLevel: 1.569,
+            maxLevel: 7.0,
+            normalMax: 3.0,
+            warningLevel: 4.5,
+            criticalLevel: 5.5,
+            status: 'normal',
+            lastUpdated: new Date().toISOString(),
+            isActive: true,
+            deviceId: 'ST-001',
+            batteryPercent: 100,
+            batteryVoltage: 13.0,
+            temperature: 31.4,
+            humidity: 62.5,
+            rssi: -60,
+            snr: 14.5,
+            tiltX: 4.3,
+            tiltY: -1.1,
+            gatewayName: 'Gateway_01',
+            gatewayStatus: 'online',
+            model: 'Heltec-WiFi-LoRa-32(V3)',
+            firmwareVersion: 'v1.2.0',
+            stationType: 'แม่น้ำ (River)',
+          },
+          {
+            id: 'ST-002',
+            name: 'สถานีคลองรังสิต (ประตูระบายน้ำ)',
+            description: 'ประเภท คลอง (Canal) · ประตูระบายน้ำคลองรังสิต',
+            location: 'ต.รังสิต อ.ธัญบุรี จ.ปทุมธานี',
+            district: 'ธัญบุรี',
+            province: 'ปทุมธานี',
+            lat: 14.0208,
+            lng: 100.7594,
+            currentLevel: 1.15,
+            maxLevel: 4.5,
+            normalMax: 2.0,
+            warningLevel: 3.0,
+            criticalLevel: 3.8,
+            status: 'normal',
+            lastUpdated: new Date().toISOString(),
+            isActive: true,
+            deviceId: 'ST-002',
+            batteryPercent: 92,
+            batteryVoltage: 12.8,
+            temperature: 32.0,
+            humidity: 60.2,
+            rssi: -68,
+            snr: 13.2,
+            tiltX: 2.1,
+            tiltY: 0.5,
+            gatewayName: 'Gateway_01',
+            gatewayStatus: 'online',
+            model: 'Heltec-WiFi-LoRa-32(V3)',
+            firmwareVersion: 'v1.2.0',
+            stationType: 'คลอง (Canal)',
+          },
+        ];
+        setStations(fallbackStations);
+        setSelectedStationId((prev) => (prev ? prev : fallbackStations[0].id));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลสถานการณ์น้ำได้';
+      setLoadError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+    const timer = setInterval(loadData, 30_000);
+    return () => clearInterval(timer);
+  }, [loadData]);
+
+  const criticalStations = useMemo(
+    () => stations.filter((s) => s.status === 'critical'),
+    [stations]
+  );
+
+  // The active selected station object
+  const selectedStation = useMemo(
+    () => stations.find((s) => s.id === selectedStationId) || stations[0] || null,
+    [stations, selectedStationId]
+  );
+
+  const formattedFetchTime = lastFetch
+    ? lastFetch.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : 'กำลังตรวจสอบ';
+
+  return (
+    <div
+      className="page-container"
+      style={{
+        maxWidth: 1400,
+        margin: '0 auto',
+        padding: '1.25rem 1rem 5rem 1rem', // extra bottom padding for floating dock
+      }}
+    >
+      {/* ── 0. CRITICAL ALERT TOAST (If any station exceeds threshold) ── */}
+      {criticalStations.length > 0 && (
+        <div
+          className="bento-card animate-fade-in"
+          style={{
+            background: 'linear-gradient(90deg, rgba(239,68,68,0.2) 0%, rgba(17,24,39,0.95) 100%)',
+            border: '1px solid #EF4444',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}
+          role="alert"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <XCircleIcon size={24} style={{ color: '#EF4444', flexShrink: 0 }} />
+            <div>
+              <span style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.9375rem', marginRight: '0.5rem' }}>
+                ประกาศเตือนภัยระดับวิกฤต
+              </span>
+              <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                พบ {criticalStations.length} จุดตรวจวัดระดับน้ำล้นตลิ่ง ({criticalStations.map((s) => s.name).join(', ')})
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setSelectedStationId(criticalStations[0].id)}
+            style={{
+              background: '#EF4444',
+              color: '#ffffff',
+              fontSize: '0.75rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ดูจุดวิกฤต
+          </button>
+        </div>
+      )}
+
+      {/* ── 1. STREAMLINED HEADER (Space-Efficient & Zero-Clutter) ── */}
+      <div
+        className="bento-card"
+        style={{
+          background: 'linear-gradient(135deg, #111827 0%, #0F172A 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '1.25rem',
+          padding: '1rem 1.5rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.2rem' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '9999px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                color: '#10B981',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+              }}
+            >
+              <CheckCircleIcon size={13} />
+              <span>ระบบเปิดให้บริการปกติ</span>
+            </div>
+          </div>
+
+          <h1
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: '#FFFFFF',
+              margin: '0.15rem 0',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            ศูนย์ติดตามระดับน้ำ
+          </h1>
+        </div>
+
+        {/* Right Side: Refresh & Sync Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>ข้อมูลล่าสุด</div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+              {formattedFetchTime} น.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={isLoading}
+            className="btn btn-secondary btn-sm"
+            style={{
+              fontSize: '0.75rem',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}
+          >
+            <RefreshCwIcon size={13} className={isLoading ? 'spin' : ''} />
+            <span>รีเฟรช</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── ERROR STATE WITH RECOVERY ── */}
+      {loadError && (
+        <div
+          className="bento-card"
+          style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            padding: '1.25rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertTriangleIcon size={24} style={{ color: '#EF4444' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: '#EF4444', fontSize: '0.875rem' }}>
+                เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {loadError} — กำลังแสดงข้อมูลสำรองเพื่อความต่อเนื่องในการใช้งาน
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={loadData}
+            style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+          >
+            <RefreshCwIcon size={14} /> ลองเชื่อมต่อใหม่
+          </button>
+        </div>
+      )}
+
+      {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER (Idea #1) ── */}
+      <StationSegmentedControl
+        stations={stations}
+        selectedStationId={selectedStation?.id || null}
+        onSelectStation={(id) => setSelectedStationId(id)}
+      />
+
+      {/* ── 3. CENTRAL TELEMETRY CANVAS: FULL METRIC INSPECTION & TREND GRAPH ── */}
+      {selectedStation && (
+        <StationTelemetryHub station={selectedStation} />
+      )}
+
+      {/* ── 4. LOWER CANVAS: GIS MAP (LEFT, LARGER) + 5 RECENT READINGS (RIGHT, COMPACT) ── */}
+      <div
+        id="map-section"
+        className="dashboard-map-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)',
+          gap: '1.25rem',
+          alignItems: 'stretch',
+          marginBottom: '1.5rem',
+        }}
+      >
+        {/* Left: GIS Map (Bigger) */}
+        <div style={{ minHeight: '440px', height: '480px' }}>
+          <StationMap
+            stations={stations}
+            selectedStation={selectedStation?.id || null}
+            onSelectStation={(id) => setSelectedStationId(id)}
+            height="100%"
+            showCardHeader={true}
+          />
+        </div>
+
+        {/* Right: Recent Readings (5 latest, compact) */}
+        {selectedStation && (
+          <div style={{ minHeight: '440px', height: '480px' }}>
+            <StationRecentReadingsCard station={selectedStation} />
+          </div>
+        )}
+      </div>
+
+      {/* ── 5. FLOATING COMMAND BAR / ACTION DOCK (Idea #3) ── */}
+      <FloatingActionDock
+        stations={stations}
+        selectedStationId={selectedStation?.id || null}
+        onSelectStation={(id) => setSelectedStationId(id)}
+        onRefresh={loadData}
+        isLoading={isLoading}
+      />
+    </div>
+  );
+}
