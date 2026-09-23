@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import WaterLevelChart from '../components/charts/WaterLevelChart';
 import type { Station, TimeRange, WaterLevelReading, StationWithReading, Reading } from '../types';
-import { fetchStations, fetchReadingsInRange, fetchReadingsByStation } from '../services/apiService';
+import { fetchStations, fetchReadingsInRange } from '../services/apiService';
 import {
   AlertTriangleIcon,
   MapPinIcon,
@@ -280,14 +280,7 @@ export default function ChartPage() {
           start.setDate(start.getDate() - 14 * 7);
         }
 
-        let data = await fetchReadingsInRange(selectedStationId, start, end);
-        // Fallback: If no readings in the selected window (e.g. historical data), load the latest available readings
-        if (data.length === 0) {
-          const recent = await fetchReadingsByStation(selectedStationId, 150);
-          if (recent.length > 0) {
-            data = recent;
-          }
-        }
+        const data = await fetchReadingsInRange(selectedStationId, start, end);
         const currStation = stations.find((s) => s.id === selectedStationId);
         const sToRef = currStation?.sensorToRefDistance;
         const aggregated = aggregateReadings(data, timeRange, selectedStationId, sToRef);
@@ -587,11 +580,58 @@ export default function ChartPage() {
                   justifyContent: 'center',
                   color: 'var(--text-muted)',
                   fontSize: '0.875rem',
-                  gap: 8,
+                  gap: 12,
+                  textAlign: 'center',
+                  padding: '0 20px',
                 }}
               >
-                <LineChartIcon size={36} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
-                <span>ไม่มีประวัติข้อมูลสำหรับสถานีนี้ในช่วงเวลาที่เลือก</span>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <LineChartIcon size={28} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem', marginBottom: 4 }}>
+                    {timeRange === 'hourly'
+                      ? 'ยังไม่มีการส่งข้อมูลในรอบ 24 ชั่วโมงล่าสุด'
+                      : timeRange === 'daily'
+                      ? 'ไม่มีข้อมูลระดับน้ำในช่วง 14 วันที่ผ่านมา'
+                      : 'ไม่มีข้อมูลระดับน้ำในช่วงเวลาที่เลือก'}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
+                    {timeRange === 'hourly' ? (
+                      <>
+                        โหนดเซนเซอร์ยังไม่ได้ส่งค่าเข้ามาในวันนี้ ท่านสามารถคลิกเลือกมุมมอง{' '}
+                        <button
+                          type="button"
+                          onClick={() => setTimeRange('daily')}
+                          style={{
+                            color: 'var(--primary-accent)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            fontWeight: 600,
+                            padding: 0,
+                          }}
+                        >
+                          "รายวัน"
+                        </button>{' '}
+                        เพื่อดูข้อมูลย้อนหลังที่มีในระบบได้ครับ
+                      </>
+                    ) : (
+                      'ลองปรับเปลี่ยนช่วงเวลาการแสดงผล หรือเลือกสถานีอื่น'
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div style={{ width: '100%', height: 480 }}>
