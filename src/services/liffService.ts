@@ -80,4 +80,16 @@ export function isInLineClient(): boolean {
   }
 }
 
+/**
+ * Login with LIFF (for external browsers or when user clicks login with LINE)
+ */
+export async function loginWithLiff(redirectUri?: string): Promise<void> {
+  const ready = await initLiff();
+  if (ready) {
+    if (!liff.isLoggedIn()) {
+      liff.login({ redirectUri: redirectUri || window.location.href });
+    }
+  }
+}
+
 export default liff;

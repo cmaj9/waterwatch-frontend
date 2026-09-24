@@ -19,8 +19,16 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+function ProtectedRoute({
+  children,
+  allowGuest = false,
+  requiredRoles,
+}: {
+  children: React.ReactNode;
+  allowGuest?: boolean;
+  requiredRoles?: ('citizen' | 'staff' | 'admin')[];
+}) {
+  const { user, isLoading, loginAsCitizen } = useAuth();
 
   if (isLoading) {
     return (
@@ -48,7 +56,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         >
           WaterWatch
         </div>
-        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>กำลังโหลดระบบ...</div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>กำลังเชื่อมต่อระบบเฝ้าระวังน้ำ...</div>
         <div
           style={{
             width: 40,
@@ -64,7 +72,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Auto-grant citizen access for public citizen routes if not logged in
+  if (!user && allowGuest) {
+    loginAsCitizen();
+    return <>{children}</>;
+  }
+
   if (!user) return <Navigate to="/login" replace />;
+
+  if (requiredRoles && !requiredRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -79,7 +98,7 @@ function AppRoutes() {
       <Route
         path="/nodes/:nodeId"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowGuest>
             <Layout>
               <ChartPage />
             </Layout>
@@ -89,7 +108,7 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowGuest>
             <Layout>
               <DashboardPage />
             </Layout>
@@ -99,7 +118,7 @@ function AppRoutes() {
       <Route
         path="/chart"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowGuest>
             <Layout>
               <ChartPage />
             </Layout>
@@ -109,7 +128,7 @@ function AppRoutes() {
       <Route
         path="/users"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['staff', 'admin']}>
             <Layout>
               <UsersPage />
             </Layout>
@@ -119,7 +138,7 @@ function AppRoutes() {
       <Route
         path="/stations"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['staff', 'admin']}>
             <Layout>
               <StationsPage />
             </Layout>
@@ -139,14 +158,14 @@ function AppRoutes() {
       <Route
         path="/history"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRoles={['admin', 'staff']}>
             <Layout>
               <DataHistoryPage />
             </Layout>
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
