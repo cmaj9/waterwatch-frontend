@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const citizenUser: AuthUser = {
               id: String(citizen.id || `citizen_${profile.userId.slice(-6)}`),
               name: profile.displayName || citizen.name || 'ประชาชนผู้ใช้งาน',
-              email: citizen.email || `citizen_${profile.userId.slice(-6)}@waterwatch.local`,
+              email: citizen.email || `citizen_${profile.userId.slice(-6)}@floodguard.local`,
               role: 'citizen',
               stationIds: citizen.stationIds || [],
               phone: citizen.phone || '',
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const fallbackCitizen: AuthUser = {
               id: `citizen_${profile.userId.slice(-6)}`,
               name: profile.displayName || 'ประชาชนผู้ใช้งาน',
-              email: `citizen_${profile.userId.slice(-6)}@waterwatch.local`,
+              email: `citizen_${profile.userId.slice(-6)}@floodguard.local`,
               role: 'citizen',
               stationIds: [],
               phone: '',
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const citizenUser: AuthUser = {
       id: 'citizen_guest',
       name: guestName || 'ประชาชนผู้ใช้งานทั่วไป',
-      email: 'citizen@waterwatch.local',
+      email: 'citizen@floodguard.local',
       role: 'citizen',
       stationIds: [],
       phone: '',

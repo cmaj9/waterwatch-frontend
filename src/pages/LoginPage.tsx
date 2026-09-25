@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UserIcon, ShieldIcon, SettingsIcon, AlertTriangleIcon, KeyIcon } from '../components/ui/Icons';
+import Logo from '../components/ui/Logo';
 import { loginWithLiff } from '../services/liffService';
 
 export default function LoginPage() {
@@ -83,23 +84,8 @@ export default function LoginPage() {
 
       <div style={{ width: '100%', maxWidth: 460, padding: '0 16px' }}>
         {/* Brand */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          {/* Brand area — decorative, not the page's primary h1 */}
-          <p
-            style={{
-              fontSize: 34,
-              fontWeight: 800,
-              marginBottom: 6,
-              letterSpacing: '-0.02em',
-              background: 'linear-gradient(135deg, #38BDF8 0%, #0EA5E9 45%, #818CF8 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            WaterWatch
-          </p>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>ระบบติดตามระดับน้ำแบบเรียลไทม์</p>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <Logo size="xl" />
         </div>
 
         <div className="login-card">

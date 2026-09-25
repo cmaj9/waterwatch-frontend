@@ -141,7 +141,7 @@ export default function SystemHeroBanner({
                 lineHeight: 1.4,
               }}
             >
-              ศูนย์ติดตามและเฝ้าระวังระดับน้ำสาธารณะ (WaterWatch Public Center)
+              ศูนย์ติดตามและเฝ้าระวังระดับน้ำสาธารณะ (FloodGuard Public Center)
             </h1>
 
             <p

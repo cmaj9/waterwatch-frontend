@@ -10,6 +10,7 @@ import {
   UserIcon,
   LogOutIcon,
 } from '../ui/Icons';
+import Logo from '../ui/Logo';
 import type { ReactNode } from 'react';
 
 interface NavItem {
@@ -52,11 +53,15 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       {/* Brand */}
-      <div className="sidebar-logo">
-        <div>
-          <div className="sidebar-logo-text">WaterWatch</div>
-          <div className="sidebar-logo-sub">ระบบติดตามระดับน้ำ</div>
-        </div>
+      <div
+        className="sidebar-logo"
+        style={{ cursor: 'pointer', padding: '16px 20px' }}
+        onClick={() => navigate('/dashboard')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboard')}
+      >
+        <Logo size="md" />
       </div>
 
       {/* Navigation */}

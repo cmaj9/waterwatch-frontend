@@ -1,6 +1,6 @@
-# WaterWatch — Telemetry Dashboard & LINE LIFF Portal
+# FloodGuard — Telemetry Dashboard & LINE LIFF Portal
 
-ระบบ Web Dashboard ตรวจวัดและเฝ้าระวังระดับน้ำอัจฉริยะ (IoT Telemetry Monitoring System) เชื่อมต่อ LINE Official Account และ LINE Front-end Framework (LIFF)
+ระบบ Web Dashboard ตรวจวัดและเตือนภัยระดับน้ำอัจฉริยะ (IoT Telemetry Monitoring & Early Warning System) เชื่อมต่อ LINE Official Account และ LINE Front-end Framework (LIFF)
 
 ---
 

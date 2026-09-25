@@ -36,7 +36,7 @@ export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllR
   return (
     <header className="topbar">
       <div>
-        <div className="topbar-title">{pageTitles[pathname] ?? 'WaterWatch'}</div>
+        <div className="topbar-title">{pageTitles[pathname] ?? 'FloodGuard'}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
           {dateStr} · {timeStr}
         </div>

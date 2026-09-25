@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -12,6 +13,31 @@ import ProfilePage from './pages/ProfilePage';
 import DataHistoryPage from './pages/DataHistoryPage';
 import SubscribePage from './pages/SubscribePage';
 import CitizenRegisterPage from './pages/CitizenRegisterPage';
+
+/**
+ * Automatically handle LINE LIFF deep-link forwarding (?liff.state=/path)
+ */
+function LiffRedirectHandler() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const liffState = params.get('liff.state');
+    if (liffState) {
+      try {
+        const decodedPath = decodeURIComponent(liffState);
+        if (decodedPath.startsWith('/') && decodedPath !== location.pathname) {
+          navigate(decodedPath, { replace: true });
+        }
+      } catch (e) {
+        console.warn('[LIFF] Failed to decode liff.state:', e);
+      }
+    }
+  }, [location, navigate]);
+
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,9 +80,9 @@ function ProtectedRoute({
             WebkitTextFillColor: 'transparent',
           }}
         >
-          WaterWatch
+          FloodGuard
         </div>
-        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>กำลังเชื่อมต่อระบบเฝ้าระวังน้ำ...</div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>กำลังเชื่อมต่อระบบเตือนภัยน้ำ FloodGuard...</div>
         <div
           style={{
             width: 40,
@@ -165,6 +191,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -174,6 +201,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <LiffRedirectHandler />
         <AuthProvider>
           <NotificationProvider>
             <AppRoutes />
